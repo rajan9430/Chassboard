@@ -67,7 +67,7 @@
   }
 
   // Movement rules (basic): no castling, no en-passant, no check validation.
-  function getLegalMoves(fromIdx) {
+  function getPseudoLegalMoves(fromIdx) {
     const piece = getPieceAt(fromIdx);
     if (!piece) return [];
 
@@ -167,6 +167,125 @@
 
     return moves;
   }
+
+  function findKing(color) {
+    for (let i = 0; i < N * N; i++) {
+      const piece = getPieceAt(i);
+      if (piece && piece.type === 'king' && piece.color === color) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  // Checks if squareIdx is attacked by any piece of attackerColor
+  function isSquareAttackedBy(targetIdx, attackerColor) {
+    const { r: tr, c: tc } = idxToRC(targetIdx);
+
+    for (let i = 0; i < N * N; i++) {
+      const piece = getPieceAt(i);
+      if (!piece || piece.color !== attackerColor) continue;
+
+      const { r: pr, c: pc } = idxToRC(i);
+
+      if (piece.type === 'pawn') {
+        const dir = piece.color === 'w' ? -1 : 1;
+        if (tr === pr + dir && (tc === pc - 1 || tc === pc + 1)) {
+          return true;
+        }
+      } else if (piece.type === 'knight') {
+        const dr = Math.abs(tr - pr);
+        const dc = Math.abs(tc - pc);
+        if ((dr === 2 && dc === 1) || (dr === 1 && dc === 2)) {
+          return true;
+        }
+      } else if (piece.type === 'king') {
+        const dr = Math.abs(tr - pr);
+        const dc = Math.abs(tc - pc);
+        if (dr <= 1 && dc <= 1) {
+          return true;
+        }
+      } else if (piece.type === 'bishop' || piece.type === 'rook' || piece.type === 'queen') {
+        const isDiagonal = Math.abs(tr - pr) === Math.abs(tc - pc);
+        const isStraight = tr === pr || tc === pc;
+
+        if (piece.type === 'bishop' && !isDiagonal) continue;
+        if (piece.type === 'rook' && !isStraight) continue;
+        if (piece.type === 'queen' && !isDiagonal && !isStraight) continue;
+
+        const dr = Math.sign(tr - pr);
+        const dc = Math.sign(tc - pc);
+        let nr = pr + dr;
+        let nc = pc + dc;
+        let pathClear = true;
+        while (nr !== tr || nc !== tc) {
+          if (getPieceAt(rcToIdx(nr, nc))) {
+            pathClear = false;
+            break;
+          }
+          nr += dr;
+          nc += dc;
+        }
+        if (pathClear) return true;
+      }
+    }
+    return false;
+  }
+
+  function isKingInCheck(color) {
+    const kingIdx = findKing(color);
+    if (kingIdx === -1) return false;
+    const opponentColor = color === 'w' ? 'b' : 'w';
+    return isSquareAttackedBy(kingIdx, opponentColor);
+  }
+
+  function isMoveLeavingKingInCheck(fromIdx, toIdx, color) {
+    const fromText = squares[fromIdx].textContent;
+    const toText = squares[toIdx].textContent;
+
+    // Simulate move
+    squares[toIdx].textContent = fromText;
+    squares[fromIdx].textContent = '';
+
+    const inCheck = isKingInCheck(color);
+
+    // Undo move
+    squares[fromIdx].textContent = fromText;
+    squares[toIdx].textContent = toText;
+
+    return inCheck;
+  }
+
+  function getLegalMoves(fromIdx) {
+    const piece = getPieceAt(fromIdx);
+    if (!piece) return [];
+    const pseudoMoves = getPseudoLegalMoves(fromIdx);
+    return pseudoMoves.filter(m => !isMoveLeavingKingInCheck(fromIdx, m.to, piece.color));
+  }
+
+  function hasAnyLegalMoves(color) {
+    for (let i = 0; i < N * N; i++) {
+      const piece = getPieceAt(i);
+      if (piece && piece.color === color) {
+        if (getLegalMoves(i).length > 0) return true;
+      }
+    }
+    return false;
+  }
+
+  function updateCheckHighlights() {
+    squares.forEach(sq => sq.classList.remove('check'));
+    
+    if (isKingInCheck('w')) {
+      const kingIdx = findKing('w');
+      if (kingIdx !== -1) squares[kingIdx].classList.add('check');
+    }
+    if (isKingInCheck('b')) {
+      const kingIdx = findKing('b');
+      if (kingIdx !== -1) squares[kingIdx].classList.add('check');
+    }
+  }
+
 
   // UI elements
   let statusEl = document.querySelector('.chess-status');
@@ -287,12 +406,23 @@
   const winnerMessage = document.getElementById('winner-message');
   const playAgainBtn = document.getElementById('play-again-btn');
 
-  function showWinner(winnerColor) {
-    const winnerName = winnerColor === 'w' ? 'White' : 'Black';
-    winnerTitle.textContent = `${winnerName} Wins!`;
-    winnerMessage.textContent = `${winnerName} has captured the King!`;
+  function showWinner(winnerColor, endReason) {
+    if (winnerColor === 'draw') {
+      winnerTitle.textContent = `It's a Draw!`;
+      winnerMessage.textContent = `Stalemate - no legal moves available.`;
+    } else {
+      const winnerName = winnerColor === 'w' ? 'White' : 'Black';
+      winnerTitle.textContent = `${winnerName} Wins!`;
+      if (endReason === 'checkmate') {
+        winnerMessage.textContent = `${winnerName} has delivered Checkmate!`;
+      } else {
+        winnerMessage.textContent = `${winnerName} has won the game!`;
+      }
+    }
     modalOverlay.classList.add('active');
-    stopConfettiFn = startCelebration();
+    if (winnerColor !== 'draw') {
+      stopConfettiFn = startCelebration();
+    }
   }
 
   function hideWinner() {
@@ -312,20 +442,6 @@
     'queen': 90,
     'king': 10000
   };
-
-  // Helper to check if a square is under attack by a specific side
-  function isSquareUnderAttackBy(squareIdx, attackerColor) {
-    for (let i = 0; i < N * N; i++) {
-      const piece = getPieceAt(i);
-      if (piece && piece.color === attackerColor) {
-        const moves = getLegalMoves(i);
-        if (moves.some(m => m.to === squareIdx)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
 
   // AI Move function
   function makeComputerMove() {
@@ -351,8 +467,11 @@
     }
 
     if (allMoves.length === 0) {
-      updateStatus('Black has no legal moves. White wins!');
-      showWinner('w');
+      if (isKingInCheck('b')) {
+        showWinner('w', 'checkmate');
+      } else {
+        showWinner('draw', 'stalemate');
+      }
       return;
     }
 
@@ -367,12 +486,12 @@
       }
 
       // 2. Safety check: avoid moving to squares under attack by White
-      if (isSquareUnderAttackBy(move.to, 'w')) {
+      if (isSquareAttackedBy(move.to, 'w')) {
         score -= PIECE_VALUES[move.piece.type] * 5;
       }
 
       // 3. Defense bonus: save piece if currently under attack
-      if (isSquareUnderAttackBy(move.from, 'w')) {
+      if (isSquareAttackedBy(move.from, 'w')) {
         score += PIECE_VALUES[move.piece.type] * 3;
       }
 
@@ -401,16 +520,18 @@
 
       const bestMove = allMoves[0];
       const movingPiece = getPieceAt(bestMove.from);
-      const targetPiece = getPieceAt(bestMove.to);
-      const isKingCaptured = targetPiece && targetPiece.type === 'king';
 
       setPieceAt(bestMove.to, movingPiece);
       setPieceAt(bestMove.from, null);
 
-      if (isKingCaptured) {
-        clearHighlights();
-        showWinner('b');
-        return;
+      // Pawn promotion check for Black
+      if (movingPiece.type === 'pawn') {
+        const { r } = idxToRC(bestMove.to);
+        if (r === 7) {
+          movingPiece.type = 'queen';
+          movingPiece.unicode = '♛';
+          setPieceAt(bestMove.to, movingPiece);
+        }
       }
 
       // next turn
@@ -418,7 +539,23 @@
       selectedIdx = null;
       legalCache = [];
       turn = 'w';
-      updateStatus('White to move');
+
+      updateCheckHighlights();
+
+      if (!hasAnyLegalMoves('w')) {
+        if (isKingInCheck('w')) {
+          showWinner('b', 'checkmate');
+        } else {
+          showWinner('draw', 'stalemate');
+        }
+        return;
+      }
+
+      let statusText = 'White to move';
+      if (isKingInCheck('w')) {
+        statusText += ' - CHECK!';
+      }
+      updateStatus(statusText);
     }, 600);
   }
 
@@ -441,6 +578,7 @@
     selectedIdx = null;
     legalCache = [];
     clearHighlights();
+    updateCheckHighlights();
     updateStatus('White to move');
 
     squares.forEach((sq, i) => {
@@ -501,16 +639,18 @@
 
         // Make move
         const movingPiece = getPieceAt(selectedIdx);
-        const targetPiece = getPieceAt(move.to);
-        const isKingCaptured = targetPiece && targetPiece.type === 'king';
 
         setPieceAt(move.to, movingPiece);
         setPieceAt(selectedIdx, null);
 
-        if (isKingCaptured) {
-          clearHighlights();
-          showWinner(movingPiece.color);
-          return;
+        // Pawn promotion check
+        if (movingPiece.type === 'pawn') {
+          const { r } = idxToRC(move.to);
+          if ((movingPiece.color === 'w' && r === 0) || (movingPiece.color === 'b' && r === 7)) {
+            movingPiece.type = 'queen';
+            movingPiece.unicode = movingPiece.color === 'w' ? '♕' : '♛';
+            setPieceAt(move.to, movingPiece);
+          }
         }
 
         // next turn
@@ -518,7 +658,24 @@
         selectedIdx = null;
         legalCache = [];
         turn = turn === 'w' ? 'b' : 'w';
-        updateStatus(turn === 'w' ? 'White to move' : 'Black to move');
+
+        updateCheckHighlights();
+
+        if (!hasAnyLegalMoves(turn)) {
+          if (isKingInCheck(turn)) {
+            const winner = turn === 'w' ? 'b' : 'w';
+            showWinner(winner, 'checkmate');
+          } else {
+            showWinner('draw', 'stalemate');
+          }
+          return;
+        }
+
+        let statusText = turn === 'w' ? 'White to move' : 'Black to move';
+        if (isKingInCheck(turn)) {
+          statusText += ' - CHECK!';
+        }
+        updateStatus(statusText);
 
         if (gameMode === 'pve' && turn === 'b') {
           makeComputerMove();
