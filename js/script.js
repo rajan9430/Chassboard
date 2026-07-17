@@ -305,6 +305,7 @@
   let turn = 'w';
   let selectedIdx = null;
   let legalCache = [];
+  let promotionResolve = null;
 
   function updateStatus(text) {
     statusEl.textContent = text;
@@ -405,6 +406,46 @@
   const winnerTitle = document.getElementById('winner-title');
   const winnerMessage = document.getElementById('winner-message');
   const playAgainBtn = document.getElementById('play-again-btn');
+
+  // Pawn Promotion Setup
+  const promotionOverlay = document.getElementById('promotion-modal-overlay');
+  if (promotionOverlay) {
+    const optionsContainer = promotionOverlay.querySelector('.promotion-options');
+    optionsContainer.addEventListener('click', (e) => {
+      const button = e.target.closest('.promotion-option');
+      if (button && promotionResolve) {
+        const type = button.dataset.piece;
+        promotionOverlay.classList.remove('active');
+        const resolveFn = promotionResolve;
+        promotionResolve = null;
+        resolveFn(type);
+      }
+    });
+  }
+
+  function promptPromotion(color) {
+    return new Promise((resolve) => {
+      promotionResolve = resolve;
+
+      // Update symbols
+      const symbols = color === 'w' 
+        ? { queen: '♕', rook: '♖', bishop: '♗', knight: '♘' }
+        : { queen: '♛', rook: '♜', bishop: '♝', knight: '♞' };
+
+      const options = promotionOverlay.querySelectorAll('.promotion-option');
+      options.forEach(button => {
+        const type = button.dataset.piece;
+        const symbolSpan = button.querySelector('.piece-symbol');
+        if (symbolSpan) {
+          symbolSpan.textContent = symbols[type];
+          symbolSpan.className = 'piece-symbol'; // reset
+          symbolSpan.classList.add(color === 'w' ? 'piece-w' : 'piece-b');
+        }
+      });
+
+      promotionOverlay.classList.add('active');
+    });
+  }
 
   function showWinner(winnerColor, endReason) {
     if (winnerColor === 'draw') {
@@ -590,7 +631,7 @@
         sq.classList.add(piece.color === 'w' ? 'piece-w' : 'piece-b');
       }
 
-      sq.addEventListener('click', () => {
+      sq.addEventListener('click', async () => {
         if (gameMode === 'pve' && turn === 'b') return;
         const piece = getPieceAt(i);
 
@@ -647,8 +688,15 @@
         if (movingPiece.type === 'pawn') {
           const { r } = idxToRC(move.to);
           if ((movingPiece.color === 'w' && r === 0) || (movingPiece.color === 'b' && r === 7)) {
-            movingPiece.type = 'queen';
-            movingPiece.unicode = movingPiece.color === 'w' ? '♕' : '♛';
+            // Wait for user to select the piece
+            const chosenType = await promptPromotion(movingPiece.color);
+            movingPiece.type = chosenType;
+            
+            const symbols = movingPiece.color === 'w' 
+              ? { queen: '♕', rook: '♖', bishop: '♗', knight: '♘' }
+              : { queen: '♛', rook: '♜', bishop: '♝', knight: '♞' };
+              
+            movingPiece.unicode = symbols[chosenType];
             setPieceAt(move.to, movingPiece);
           }
         }

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css" type="text/css">
 </head>
+
 <body>
     <header class="game-header">
         <h1 class="game-title">Interactive Chess</h1>
@@ -101,6 +103,33 @@
         </div>
     </div>
 
+    <!-- Promotion Modal -->
+    <div id="promotion-modal-overlay" class="modal-overlay">
+        <div class="promotion-modal">
+            <h2 class="promotion-title">Pawn Promotion</h2>
+            <p class="promotion-subtitle">Select a piece</p>
+            <div class="promotion-options">
+                <button class="promotion-option" data-piece="queen">
+                    <span class="piece-symbol">♕</span>
+                    <span class="piece-name">Rani (Queen)</span>
+                </button>
+                <button class="promotion-option" data-piece="rook">
+                    <span class="piece-symbol">♖</span>
+                    <span class="piece-name">Hathi (Rook)</span>
+                </button>
+                <button class="promotion-option" data-piece="bishop">
+                    <span class="piece-symbol">♗</span>
+                    <span class="piece-name">Ut (Bishop)</span>
+                </button>
+                <button class="promotion-option" data-piece="knight">
+                    <span class="piece-symbol">♘</span>
+                    <span class="piece-name">Ghora (Knight)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/script.js"></script>
 </body>
+
 </html>
