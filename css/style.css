@@ -1,58 +1,58 @@
-*{
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-body{
-    background: antiquewhite;
+body {
+  background: antiquewhite;
 }
 
-.chass{
-    border: 2px solid black;
-    display: table;
-    margin: 50px auto;
+.chass {
+  border: 2px solid black;
+  display: table;
+  margin: 50px auto;
 }
 
-.box1{
-    width: 70px;
-    height: 70px;
-    float: left;
-    background: black;
-    text-align: center;
-    line-height: 70px;
-    color: white;
-    font-size: 40px;
+.box1 {
+  width: 70px;
+  height: 70px;
+  float: left;
+  background: black;
+  text-align: center;
+  line-height: 70px;
+  color: white;
+  font-size: 40px;
 }
 
-.box2{
-    width: 70px;
-    height: 70px;
-    float: left;
-    background: white;
-     text-align: center;
-    line-height: 70px;
-    font-size: 40px;
+.box2 {
+  width: 70px;
+  height: 70px;
+  float: left;
+  background: white;
+  text-align: center;
+  line-height: 70px;
+  font-size: 40px;
 }
 
-.clear-flax{
-    clear: both;
+.clear-flax {
+  clear: both;
 }
 
 /* JS highlights */
 .box1.selected,
-.box2.selected{
+.box2.selected {
   outline: 4px solid #00bcd4;
   outline-offset: -4px;
 }
 
 .box1.move,
-.box2.move{
+.box2.move {
   background: #7CFFB2 !important;
 }
 
 .box1.capture,
-.box2.capture{
+.box2.capture {
   background: #FF6B6B !important;
 }
 
@@ -142,8 +142,15 @@ body{
 }
 
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
-}
+  0% {
+    transform: translateY(0px);
+  }
 
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
