@@ -41,6 +41,10 @@
   function setPieceAt(i, piece) {
     squares[i].textContent = piece ? piece.unicode : '';
     squares[i].dataset.piece = piece ? JSON.stringify({ type: piece.type, color: piece.color }) : '';
+    squares[i].classList.remove('piece-w', 'piece-b');
+    if (piece) {
+      squares[i].classList.add(piece.color === 'w' ? 'piece-w' : 'piece-b');
+    }
   }
 
   function isInside(r, c) {
@@ -322,6 +326,11 @@
     squares.forEach((sq, i) => {
       sq.style.cursor = 'pointer';
       sq.dataset.sq = String(i);
+
+      const piece = getPieceAt(i);
+      if (piece) {
+        sq.classList.add(piece.color === 'w' ? 'piece-w' : 'piece-b');
+      }
 
       sq.addEventListener('click', () => {
         const piece = getPieceAt(i);

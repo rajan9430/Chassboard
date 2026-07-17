@@ -49,7 +49,7 @@ Chessboard/
 1. Download or clone this repository.
 
 ```bash
-git clone https://github.com/your-username/chessboard.git
+git clone https://github.com/rajan9430/Chassboard.git
 ```
 
 2. Open the project folder.
