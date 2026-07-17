@@ -182,6 +182,7 @@
     boardEl.insertAdjacentElement('afterend', statusEl);
   }
 
+  let gameMode = 'pvp'; // 'pvp' or 'pve'
   let turn = 'w';
   let selectedIdx = null;
   let legalCache = [];
@@ -302,6 +303,125 @@
     }
   }
 
+  // AI Piece value mapping
+  const PIECE_VALUES = {
+    'pawn': 10,
+    'knight': 30,
+    'bishop': 30,
+    'rook': 50,
+    'queen': 90,
+    'king': 10000
+  };
+
+  // Helper to check if a square is under attack by a specific side
+  function isSquareUnderAttackBy(squareIdx, attackerColor) {
+    for (let i = 0; i < N * N; i++) {
+      const piece = getPieceAt(i);
+      if (piece && piece.color === attackerColor) {
+        const moves = getLegalMoves(i);
+        if (moves.some(m => m.to === squareIdx)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // AI Move function
+  function makeComputerMove() {
+    if (gameMode !== 'pve' || turn !== 'b') return;
+
+    updateStatus('Computer is thinking...');
+
+    // Gather all legal moves for Black
+    const allMoves = [];
+    for (let i = 0; i < N * N; i++) {
+      const piece = getPieceAt(i);
+      if (piece && piece.color === 'b') {
+        const moves = getLegalMoves(i);
+        for (const m of moves) {
+          allMoves.push({
+            from: i,
+            to: m.to,
+            capture: m.capture,
+            piece: piece
+          });
+        }
+      }
+    }
+
+    if (allMoves.length === 0) {
+      updateStatus('Black has no legal moves. White wins!');
+      showWinner('w');
+      return;
+    }
+
+    // Score each move using simple heuristics
+    allMoves.forEach(move => {
+      let score = 0;
+      const targetPiece = getPieceAt(move.to);
+
+      // 1. Capture bonus
+      if (move.capture && targetPiece) {
+        score += PIECE_VALUES[targetPiece.type] * 10;
+      }
+
+      // 2. Safety check: avoid moving to squares under attack by White
+      if (isSquareUnderAttackBy(move.to, 'w')) {
+        score -= PIECE_VALUES[move.piece.type] * 5;
+      }
+
+      // 3. Defense bonus: save piece if currently under attack
+      if (isSquareUnderAttackBy(move.from, 'w')) {
+        score += PIECE_VALUES[move.piece.type] * 3;
+      }
+
+      // 4. Positional bonus: move down (towards row index 7)
+      const toCoords = idxToRC(move.to);
+      score += toCoords.r * 0.5;
+
+      // 5. Center control: rows 3-4, columns 2-5
+      if (toCoords.r >= 3 && toCoords.r <= 4 && toCoords.c >= 2 && toCoords.c <= 5) {
+        score += 2;
+      }
+
+      // 6. Variance
+      score += Math.random() * 3;
+
+      move.score = score;
+    });
+
+    // Sort moves descending
+    allMoves.sort((a, b) => b.score - a.score);
+
+    // Make best move with delay
+    setTimeout(() => {
+      // Re-verify that game state has not changed during the delay
+      if (gameMode !== 'pve' || turn !== 'b') return;
+
+      const bestMove = allMoves[0];
+      const movingPiece = getPieceAt(bestMove.from);
+      const targetPiece = getPieceAt(bestMove.to);
+      const isKingCaptured = targetPiece && targetPiece.type === 'king';
+
+      setPieceAt(bestMove.to, movingPiece);
+      setPieceAt(bestMove.from, null);
+
+      if (isKingCaptured) {
+        clearHighlights();
+        showWinner('b');
+        return;
+      }
+
+      // next turn
+      clearHighlights();
+      selectedIdx = null;
+      legalCache = [];
+      turn = 'w';
+      updateStatus('White to move');
+    }, 600);
+  }
+
   if (playAgainBtn) {
     playAgainBtn.addEventListener('click', () => {
       hideWinner();
@@ -333,6 +453,7 @@
       }
 
       sq.addEventListener('click', () => {
+        if (gameMode === 'pve' && turn === 'b') return;
         const piece = getPieceAt(i);
 
         // Click same selected piece => deselect
@@ -398,7 +519,33 @@
         legalCache = [];
         turn = turn === 'w' ? 'b' : 'w';
         updateStatus(turn === 'w' ? 'White to move' : 'Black to move');
+
+        if (gameMode === 'pve' && turn === 'b') {
+          makeComputerMove();
+        }
       });
+    });
+  }
+
+  // Mode Selector Buttons
+  const btnPvP = document.getElementById('btn-pvp');
+  const btnPvE = document.getElementById('btn-pve');
+
+  if (btnPvP && btnPvE) {
+    btnPvP.addEventListener('click', () => {
+      if (gameMode === 'pvp') return;
+      gameMode = 'pvp';
+      btnPvP.classList.add('active');
+      btnPvE.classList.remove('active');
+      initGame();
+    });
+
+    btnPvE.addEventListener('click', () => {
+      if (gameMode === 'pve') return;
+      gameMode = 'pve';
+      btnPvE.classList.add('active');
+      btnPvP.classList.remove('active');
+      initGame();
     });
   }
 
