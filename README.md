@@ -96,7 +96,7 @@ images/screenshot.png
 Example:
 
 ```md
-<img src="output/output.png" alt="chass" />
+<img src="output.png" alt="chass" />
 ```
 
 ---
